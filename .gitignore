@@ -1,0 +1,20 @@
+# Ambiente Virtual
+venv/
+.venv/
+
+# Arquivos de Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+logs/
+*.log
+
+# Arquivos do Streamlit (especialmente segredos)
+.streamlit/secrets.toml
+
+# Arquivos de IDEs
+.idea/
+.vscode/
