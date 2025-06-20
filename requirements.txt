@@ -4,4 +4,6 @@ pycaret
 plotly
 holidays
 nbconvert
+nbformat
 joblib
+scikit-learn
