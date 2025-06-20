@@ -1,0 +1,7 @@
+streamlit
+pandas
+pycaret
+plotly
+holidays
+nbconvert
+joblib
