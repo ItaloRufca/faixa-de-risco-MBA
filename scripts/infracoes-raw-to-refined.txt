@@ -1,0 +1,46 @@
+import boto3
+
+s3 = boto3.client('s3')
+
+RAW_BUCKET = 'handson-fund-dados-analytics'
+RAW_PREFIX = 'raw/raw-infracoes/'
+REFINED_PREFIX = 'refined/ref-infracoes/'
+
+def lambda_handler(event, context):
+    response = s3.list_objects_v2(Bucket=RAW_BUCKET, Prefix=RAW_PREFIX)
+    
+    if 'Contents' not in response:
+        return {'status': 'Nenhum arquivo CSV encontrado'}
+
+    for obj in response['Contents']:
+        key = obj['Key']
+        if not key.endswith('.csv'):
+            continue
+
+        print(f"Processando: {key}")
+        raw_obj = s3.get_object(Bucket=RAW_BUCKET, Key=key)
+        raw_data = raw_obj['Body'].read()
+
+        try:
+            # decode from ISO-8859-1 and encode to UTF-8
+            decoded = raw_data.decode('ISO-8859-1')
+            utf8_encoded = decoded.encode('utf-8')
+        except Exception as e:
+            print(f"Erro ao converter {key}: {str(e)}")
+            continue
+
+        # Define o novo path no refined
+        new_key = key.replace(RAW_PREFIX, REFINED_PREFIX)
+
+        # Faz upload do arquivo convertido
+        s3.put_object(
+            Bucket=RAW_BUCKET,
+            Key=new_key,
+            Body=utf8_encoded,
+            ContentType='text/csv',
+            ContentEncoding='utf-8'
+        )
+
+        print(f"✔️ Arquivo convertido e salvo em: {new_key}")
+
+    return {'status': 'Conversão finalizada'}

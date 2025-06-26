@@ -1,0 +1,55 @@
+import boto3
+import csv
+import io
+import codecs
+
+s3 = boto3.client('s3')
+
+RAW_BUCKET = 'handson-fund-dados-analytics'
+RAW_PREFIX = 'raw/raw-acidentes/'
+REFINED_PREFIX = 'refined/ref-acidentes/'
+
+def lambda_handler(event, context):
+    response = s3.list_objects_v2(Bucket=RAW_BUCKET, Prefix=RAW_PREFIX)
+    
+    if 'Contents' not in response:
+        return {'status': 'Nenhum arquivo CSV encontrado'}
+
+    for obj in response['Contents']:
+        key = obj['Key']
+        if not key.endswith('.csv'):
+            continue
+
+        print(f"Processando: {key}")
+        raw_obj = s3.get_object(Bucket=RAW_BUCKET, Key=key)
+
+        try:
+            # Stream de leitura ISO-8859-1
+            body_stream = codecs.getreader('ISO-8859-1')(raw_obj['Body'])
+            reader = csv.reader(body_stream, delimiter=';', quotechar='"')
+
+            # Stream de escrita UTF-8
+            output_buffer = io.StringIO()
+            writer = csv.writer(output_buffer, delimiter=';', quotechar='"', quoting=csv.QUOTE_ALL)
+
+            for row in reader:
+                writer.writerow(row)
+
+            utf8_encoded = output_buffer.getvalue().encode('utf-8')
+
+        except Exception as e:
+            print(f"Erro ao converter {key}: {str(e)}")
+            continue
+
+        new_key = key.replace(RAW_PREFIX, REFINED_PREFIX)
+
+        s3.put_object(
+            Bucket=RAW_BUCKET,
+            Key=new_key,
+            Body=utf8_encoded,
+            ContentType='text/csv'
+        )
+
+        print(f"✔️ Arquivo convertido e salvo em: {new_key}")
+
+    return {'status': 'Conversão finalizada'}

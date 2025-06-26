@@ -1,0 +1,60 @@
+import boto3
+import time
+import uuid
+
+ATHENA_DATABASE = 'specialized_handson'
+ATHENA_OUTPUT_BUCKET = 's3://handson-fund-dados-analytics/specialized/infracoes/'  # onde o resultado bruto vai inicialmente
+ATHENA_QUERY = 'SELECT * FROM specialized_handson.spec_infracoes'
+DESTINO_BUCKET = 'handson-fund-dados-analytics'
+DESTINO_KEY = f'exports/resultado_{uuid.uuid4()}.csv'
+
+athena_client = boto3.client('athena')
+s3_client = boto3.client('s3')
+
+def lambda_handler(event, context):
+    # Iniciar query no Athena
+    response = athena_client.start_query_execution(
+        QueryString=ATHENA_QUERY,
+        QueryExecutionContext={'Database': ATHENA_DATABASE},
+        ResultConfiguration={'OutputLocation': ATHENA_OUTPUT_BUCKET}
+    )
+    
+    query_execution_id = response['QueryExecutionId']
+    
+    # Esperar a execução terminar
+    while True:
+        result = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
+        state = result['QueryExecution']['Status']['State']
+        if state in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+            break
+        time.sleep(2)
+
+    # Após checar o status
+    if state != 'SUCCEEDED':
+        failure_reason = result['QueryExecution']['Status'].get('StateChangeReason', 'Motivo desconhecido')
+        return {
+            'statusCode': 500,
+            'body': f'Query falhou com estado: {state}. Motivo: {failure_reason}'
+        }
+
+    
+    # Obter o caminho do CSV gerado
+    result_path = f'{ATHENA_OUTPUT_BUCKET}{query_execution_id}.csv'
+    
+    # Extrair nomes do bucket e key
+    source_bucket = ATHENA_OUTPUT_BUCKET.replace('s3://', '').split('/')[0]
+    source_prefix = '/'.join(ATHENA_OUTPUT_BUCKET.replace('s3://', '').split('/')[1:])
+    source_key = f'{source_prefix}{query_execution_id}.csv'
+    
+    # Copiar para destino final
+    copy_source = {'Bucket': source_bucket, 'Key': source_key}
+    s3_client.copy_object(
+        Bucket=DESTINO_BUCKET,
+        Key=DESTINO_KEY,
+        CopySource=copy_source
+    )
+
+    return {
+        'statusCode': 200,
+        'body': f'Resultado exportado com sucesso para s3://{DESTINO_BUCKET}/{DESTINO_KEY}'
+    }
