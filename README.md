@@ -77,7 +77,7 @@ cd faixa-de-risco-MBA
 ```bash
 # Windows
 python -m venv venv
-.venv\ScriptsActivate
+.\venv\Scripts\activate
 
 # macOS/Linux
 python3 -m venv venv
