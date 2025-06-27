@@ -147,7 +147,7 @@ jupyter notebook
 Você pode acessar a aplicação online via Streamlit Cloud:
 
 ```bash
-https://share.streamlit.io/ItaloRufca/faixa-de-risco-MBA/main/streamlit_app.py
+https://faixa-de-risco-mba.streamlit.app/
 ```
 
 ---
